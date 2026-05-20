@@ -180,8 +180,36 @@ main{max-width:1060px;margin:0 auto;padding:1.75rem 1.25rem 5rem}
 .scale-seg.high-s .scale-label{color:rgba(239,68,68,.7)}
 .exp-note{font-size:12px;color:var(--muted2);line-height:1.75;padding:.75rem;background:var(--bg3);border-radius:8px;border-right:3px solid rgba(59,130,246,.4)}
 
-footer{text-align:center;padding:2rem;font-size:11px;color:var(--muted);border-top:1px solid var(--border)}
-footer span{color:var(--muted2)}
+<footer style="line-height:2">
+
+  <div style="font-size:14px;font-weight:600;color:#dde3ee">
+    Dynamic Model for Estimating Investment Risk in Cryptocurrencies
+    Using Statistical Analysis and Data Science
+  </div>
+
+  <div style="margin-top:10px">
+    Department of Mathematics - Statistics and Data Science
+  </div>
+
+  <div>
+    Imam Abdulrahman Bin Faisal University (IAU)
+  </div>
+
+  <div>
+    Graduation Project — 2026
+  </div>
+
+  <div style="margin-top:12px">
+    <strong>Students:</strong><br>
+    Alla Alsaleh | Hala Alzahrani | Raghad Alharbi | Lujain Alalyani
+  </div>
+
+  <div style="margin-top:10px">
+    <strong>Supervisor:</strong><br>
+    Dr. Ezzedine Rabeh Mliki
+  </div>
+
+</footer>
 
 /* LOADER SPINNER */
 .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:none}
@@ -190,6 +218,14 @@ footer span{color:var(--muted2)}
 <body>
 
 <nav>
+  <select id="lang-switch" onchange="changeLanguage()" 
+style="background:#131920;color:#dde3ee;border:1px solid rgba(255,255,255,0.1);
+padding:5px 10px;border-radius:8px;font-family:inherit;font-size:12px">
+
+  <option value="ar">العربية</option>
+  <option value="en">English</option>
+
+</select>
   <div class="nav-brand">
     <div class="nav-logo">📊</div>
     <div>
@@ -651,7 +687,7 @@ async function loadData() {
     updateCards(simple);
     renderChart();
 
-    const t = new Date().toLocaleTimeString('ar-SA');
+    const t = new Date().toLocaleTimeString('en-US');
     document.getElementById('status-msg').textContent = `✅ آخر تحديث: ${t}`;
     document.getElementById('nav-time').textContent = t;
 
@@ -677,7 +713,30 @@ function useDemoData() {
   renderChart();
   document.getElementById('nav-time').textContent = 'بيانات تجريبية';
 }
+function changeLanguage() {
+  const lang = document.getElementById('lang-switch').value;
 
+  if(lang === 'en'){
+    document.documentElement.lang = 'en';
+    document.documentElement.dir = 'ltr';
+
+    document.querySelector('.nav-title').textContent =
+      'Dynamic Risk Index';
+
+    document.querySelector('.nav-sub').textContent =
+      'DRI Dashboard';
+
+  } else {
+    document.documentElement.lang = 'ar';
+    document.documentElement.dir = 'rtl';
+
+    document.querySelector('.nav-title').textContent =
+      'مؤشر الخطر الديناميكي';
+
+    document.querySelector('.nav-sub').textContent =
+      'Dynamic Risk Index — DRI';
+  }
+}
 // ── INIT ──
 loadData();
 </script>
