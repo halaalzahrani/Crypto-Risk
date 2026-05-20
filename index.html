@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مؤشر الخطر الديناميكي — DRI</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg:     #080b10;
+  --bg2:    #0d1117;
+  --bg3:    #131920;
+  --bg4:    #1a2230;
+  --border: rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.13);
+  --text:   #dde3ee;
+  --muted:  #5a6478;
+  --muted2: #7f8fa8;
+  --accent: #3b82f6;
+  --btc:    #f7931a;
+  --eth:    #627eea;
+  --low:    #22c55e;
+  --med:    #f59e0b;
+  --high:   #ef4444;
+  --font:   'IBM Plex Sans Arabic', sans-serif;
+  --mono:   'JetBrains Mono', monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;direction:rtl}
+
+/* NAV */
+nav{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 2rem;height:54px;
+  background:rgba(8,11,16,0.9);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.nav-brand{display:flex;align-items:center;gap:10px}
+.nav-logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--btc),var(--eth));display:flex;align-items:center;justify-content:center;font-size:15px}
+.nav-title{font-size:14px;font-weight:600}
+.nav-sub{font-size:11px;color:var(--muted2)}
+.live-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--low);background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);padding:4px 10px;border-radius:999px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--low);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+main{max-width:1060px;margin:0 auto;padding:1.75rem 1.25rem 5rem}
+
+/* STATUS */
+.status-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:1.75rem;flex-wrap:wrap}
+.status-msg{font-size:12px;color:var(--muted2);font-family:var(--mono)}
+.refresh-btn{display:flex;align-items:center;gap:6px;background:none;border:1px solid var(--border2);color:var(--text);font-size:12px;font-family:var(--font);padding:5px 14px;border-radius:7px;cursor:pointer;transition:all .2s}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent)}
+.refresh-btn.spinning svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* SOURCE BADGE */
+.source-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2);background:var(--bg3);border:1px solid var(--border);padding:3px 10px;border-radius:6px}
+
+/* SECTION LABEL */
+.sec-label{font-size:10px;font-weight:600;letter-spacing:1.8px;color:var(--muted);text-transform:uppercase;margin-bottom:.85rem}
+
+/* COIN CARDS */
+.coins-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.75rem}
+@media(max-width:620px){.coins-grid{grid-template-columns:1fr}}
+
+.coin-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:16px;padding:1.35rem;position:relative;overflow:hidden;
+  transition:border-color .3s
+}
+.coin-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+#btc-card::after{background:linear-gradient(90deg,var(--btc) 0%,transparent 70%)}
+#eth-card::after{background:linear-gradient(90deg,var(--eth) 0%,transparent 70%)}
+
+.coin-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.1rem}
+.coin-id{display:flex;align-items:center;gap:10px}
+.coin-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600}
+.coin-icon.btc{background:rgba(247,147,26,.1);color:var(--btc)}
+.coin-icon.eth{background:rgba(98,126,234,.1);color:var(--eth)}
+.coin-ticker{font-size:15px;font-weight:600}
+.coin-full{font-size:11px;color:var(--muted2)}
+
+.risk-pill{font-size:11px;font-weight:600;padding:4px 12px;border-radius:999px;font-family:var(--mono);white-space:nowrap}
+.risk-pill.low {background:rgba(34,197,94,.1); color:var(--low); border:1px solid rgba(34,197,94,.2)}
+.risk-pill.med {background:rgba(245,158,11,.1);color:var(--med);border:1px solid rgba(245,158,11,.2)}
+.risk-pill.high{background:rgba(239,68,68,.1); color:var(--high);border:1px solid rgba(239,68,68,.2)}
+
+.dri-block{text-align:center;margin:.6rem 0}
+.dri-num{font-size:46px;font-weight:300;font-family:var(--mono);letter-spacing:-2px;line-height:1}
+.dri-tag{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px}
+
+.dri-track{height:5px;background:rgba(255,255,255,0.05);border-radius:999px;margin:.85rem 0;overflow:hidden}
+.dri-fill{height:100%;border-radius:999px;transition:width .9s cubic-bezier(.4,0,.2,1)}
+
+.price-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border)}
+.price-val{font-size:18px;font-weight:600;font-family:var(--mono)}
+.price-chg{font-size:13px;font-family:var(--mono)}
+
+/* PREDICT BUTTON */
+.predict-section{margin-bottom:1.75rem}
+.predict-btn{
+  width:100%;padding:1rem;
+  background:linear-gradient(135deg,rgba(59,130,246,.15),rgba(98,126,234,.1));
+  border:1px solid rgba(59,130,246,.3);
+  border-radius:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  font-size:15px;font-weight:600;font-family:var(--font);color:var(--text);
+  transition:all .25s;position:relative;overflow:hidden
+}
+.predict-btn:hover{border-color:rgba(59,130,246,.6);background:linear-gradient(135deg,rgba(59,130,246,.22),rgba(98,126,234,.16))}
+.predict-btn:active{transform:scale(.99)}
+.predict-btn .btn-icon{font-size:20px}
+.predict-btn .btn-sub{font-size:11px;color:var(--muted2);font-weight:400;display:block;margin-top:2px}
+.predict-btn.loading{pointer-events:none;opacity:.7}
+
+/* PREDICTION RESULT */
+.pred-result{
+  margin-top:1rem;
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:14px;overflow:hidden;
+  display:none
+}
+.pred-result.show{display:block;animation:fadeUp .4s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.pred-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.pred-header-title{font-size:13px;font-weight:500;color:var(--muted2)}
+.pred-badge{font-size:12px;font-weight:600;padding:4px 14px;border-radius:999px;font-family:var(--mono)}
+.pred-badge.keep {background:rgba(34,197,94,.12); color:var(--low); border:1px solid rgba(34,197,94,.25)}
+.pred-badge.watch{background:rgba(245,158,11,.12);color:var(--med);border:1px solid rgba(245,158,11,.25)}
+.pred-badge.avoid{background:rgba(239,68,68,.12); color:var(--high);border:1px solid rgba(239,68,68,.25)}
+
+.pred-body{padding:1.25rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:580px){.pred-body{grid-template-columns:1fr}}
+
+.pred-coin{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:1rem}
+.pred-coin-name{font-size:12px;color:var(--muted2);margin-bottom:.5rem;display:flex;align-items:center;gap:6px}
+.pred-dri-row{display:flex;align-items:baseline;gap:8px;margin-bottom:.5rem}
+.pred-dri-val{font-size:32px;font-weight:300;font-family:var(--mono);letter-spacing:-1px}
+.pred-arrow{font-size:16px}
+.pred-explain{font-size:12px;color:var(--muted2);line-height:1.65;margin-top:.6rem}
+.pred-recommend{
+  margin-top:.75rem;padding:.6rem .8rem;border-radius:8px;
+  font-size:12px;font-weight:500;line-height:1.5
+}
+.pred-recommend.keep {background:rgba(34,197,94,.08); color:#4ade80;border-right:3px solid var(--low)}
+.pred-recommend.watch{background:rgba(245,158,11,.08);color:#fbbf24;border-right:3px solid var(--med)}
+.pred-recommend.avoid{background:rgba(239,68,68,.08); color:#f87171;border-right:3px solid var(--high)}
+
+/* CHART */
+.chart-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.35rem;margin-bottom:1.75rem}
+.chart-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px}
+.chart-title-txt{font-size:13px;font-weight:500}
+.range-btns{display:flex;gap:4px}
+.range-btns button{background:none;border:1px solid var(--border);color:var(--muted2);font-size:11px;font-family:var(--mono);padding:4px 10px;border-radius:6px;cursor:pointer;transition:all .2s}
+.range-btns button.active{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.4);color:var(--accent)}
+.chart-legend{display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted2)}
+.leg-line{width:18px;height:2px;border-radius:1px}
+.chart-wrap{position:relative;height:230px}
+
+/* WHAT IS DRI */
+.explainer{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.35rem;margin-bottom:1.75rem}
+.exp-title{font-size:13px;font-weight:500;margin-bottom:1rem}
+.exp-scale{display:flex;gap:0;border-radius:10px;overflow:hidden;margin-bottom:1rem}
+.scale-seg{flex:1;padding:10px 8px;text-align:center}
+.scale-seg.low-s {background:rgba(34,197,94,.1)}
+.scale-seg.med-s {background:rgba(245,158,11,.1)}
+.scale-seg.high-s{background:rgba(239,68,68,.1)}
+.scale-range{font-size:13px;font-weight:600;font-family:var(--mono)}
+.scale-label{font-size:11px;margin-top:2px}
+.scale-seg.low-s  .scale-range{color:var(--low)}
+.scale-seg.med-s  .scale-range{color:var(--med)}
+.scale-seg.high-s .scale-range{color:var(--high)}
+.scale-seg.low-s  .scale-label{color:rgba(34,197,94,.7)}
+.scale-seg.med-s  .scale-label{color:rgba(245,158,11,.7)}
+.scale-seg.high-s .scale-label{color:rgba(239,68,68,.7)}
+.exp-note{font-size:12px;color:var(--muted2);line-height:1.75;padding:.75rem;background:var(--bg3);border-radius:8px;border-right:3px solid rgba(59,130,246,.4)}
+
+footer{text-align:center;padding:2rem;font-size:11px;color:var(--muted);border-top:1px solid var(--border)}
+footer span{color:var(--muted2)}
+
+/* LOADER SPINNER */
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:none}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">📊</div>
+    <div>
+      <div class="nav-title">مؤشر الخطر الديناميكي</div>
+      <div class="nav-sub">Dynamic Risk Index — DRI</div>
+    </div>
+  </div>
+  <div class="live-pill">
+    <div class="dot"></div>
+    <span id="nav-time">جاري التحميل</span>
+  </div>
+</nav>
+
+<main>
+
+  <!-- STATUS ROW -->
+  <div class="status-row">
+    <div>
+      <div class="status-msg" id="status-msg">🔄 جاري جلب البيانات...</div>
+      <div style="margin-top:4px">
+        <span class="source-badge">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          CoinGecko API — نفس بيانات CoinMarketCap المستخدمة في البحث
+        </span>
+      </div>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+      تحديث
+    </button>
+  </div>
+
+  <!-- COIN CARDS -->
+  <div class="sec-label">مستوى الخطر الآن</div>
+  <div class="coins-grid">
+
+    <div class="coin-card" id="btc-card">
+      <div class="coin-top">
+        <div class="coin-id">
+          <div class="coin-icon btc">₿</div>
+          <div><div class="coin-ticker">BTC</div><div class="coin-full">Bitcoin</div></div>
+        </div>
+        <span class="risk-pill med" id="btc-risk">...</span>
+      </div>
+      <div class="dri-block">
+        <div class="dri-num" id="btc-dri" style="color:var(--btc)">—</div>
+        <div class="dri-tag">مؤشر الخطر الديناميكي (DRI)</div>
+      </div>
+      <div class="dri-track"><div class="dri-fill" id="btc-bar" style="width:0%"></div></div>
+      <div class="price-row">
+        <span class="price-val" id="btc-price">—</span>
+        <span class="price-chg" id="btc-chg">—</span>
+      </div>
+    </div>
+
+    <div class="coin-card" id="eth-card">
+      <div class="coin-top">
+        <div class="coin-id">
+          <div class="coin-icon eth">Ξ</div>
+          <div><div class="coin-ticker">ETH</div><div class="coin-full">Ethereum</div></div>
+        </div>
+        <span class="risk-pill med" id="eth-risk">...</span>
+      </div>
+      <div class="dri-block">
+        <div class="dri-num" id="eth-dri" style="color:var(--eth)">—</div>
+        <div class="dri-tag">مؤشر الخطر الديناميكي (DRI)</div>
+      </div>
+      <div class="dri-track"><div class="dri-fill" id="eth-bar" style="width:0%"></div></div>
+      <div class="price-row">
+        <span class="price-val" id="eth-price">—</span>
+        <span class="price-chg" id="eth-chg">—</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- WHAT IS DRI — simple explainer for beginners -->
+  <div class="explainer">
+    <div class="exp-title">📌 كيف أقرأ المؤشر؟</div>
+    <div class="exp-scale">
+      <div class="scale-seg low-s">
+        <div class="scale-range">0 – 0.35</div>
+        <div class="scale-label">🟢 خطر منخفض</div>
+      </div>
+      <div class="scale-seg med-s">
+        <div class="scale-range">0.35 – 0.65</div>
+        <div class="scale-label">🟡 خطر متوسط</div>
+      </div>
+      <div class="scale-seg high-s">
+        <div class="scale-range">0.65 – 1.0</div>
+        <div class="scale-label">🔴 خطر مرتفع</div>
+      </div>
+    </div>
+    <div class="exp-note">
+      المؤشر يقيس مدى تقلّب العملة في الأيام الأخيرة. كلما اقترب من 1 كلما كان السوق أكثر تذبذباً وخطراً.
+      لا يعني الخطر المرتفع بالضرورة أن السعر سينزل — بل يعني أن التحركات كبيرة في الاتجاهين.
+    </div>
+  </div>
+
+  <!-- PREDICT BUTTON -->
+  <div class="sec-label">توقع الغد</div>
+  <div class="predict-section">
+    <button class="predict-btn" id="pred-btn" onclick="runPrediction()">
+      <span class="btn-icon">🔮</span>
+      <span>
+        توقّع مستوى الخطر لغد
+        <span class="btn-sub">النموذج يحسب DRI المتوقع لليوم القادم بناءً على آخر 14 يوم</span>
+      </span>
+    </button>
+
+    <div class="pred-result" id="pred-result">
+      <div class="pred-header">
+        <span class="pred-header-title">🔮 توقع الغد — نموذج LSTM (محاكاة)</span>
+        <span class="pred-badge" id="pred-overall-badge">—</span>
+      </div>
+      <div class="pred-body">
+        <div class="pred-coin" id="pred-btc-box">
+          <div class="pred-coin-name">
+            <span style="color:var(--btc)">₿</span> Bitcoin — الغد
+          </div>
+          <div class="pred-dri-row">
+            <span class="pred-dri-val" id="pred-btc-val" style="color:var(--btc)">—</span>
+            <span class="pred-arrow" id="pred-btc-arrow">—</span>
+          </div>
+          <div class="pred-explain" id="pred-btc-explain">—</div>
+          <div class="pred-recommend" id="pred-btc-rec">—</div>
+        </div>
+        <div class="pred-coin" id="pred-eth-box">
+          <div class="pred-coin-name">
+            <span style="color:var(--eth)">Ξ</span> Ethereum — الغد
+          </div>
+          <div class="pred-dri-row">
+            <span class="pred-dri-val" id="pred-eth-val" style="color:var(--eth)">—</span>
+            <span class="pred-arrow" id="pred-eth-arrow">—</span>
+          </div>
+          <div class="pred-explain" id="pred-eth-explain">—</div>
+          <div class="pred-recommend" id="pred-eth-rec">—</div>
+        </div>
+      </div>
+      <div style="padding:.75rem 1.25rem;border-top:1px solid var(--border);font-size:11px;color:var(--muted)">
+        ⚠️ هذا التوقع للأغراض البحثية والتعليمية فقط، وليس نصيحة استثمارية.
+      </div>
+    </div>
+  </div>
+
+  <!-- DRI CHART -->
+  <div class="sec-label">المؤشر عبر الوقت</div>
+  <div class="chart-box">
+    <div class="chart-top">
+      <span class="chart-title-txt">تاريخ مؤشر DRI</span>
+      <div class="range-btns">
+        <button class="active" onclick="setRange(7,this)">7 أيام</button>
+        <button onclick="setRange(14,this)">14 يوم</button>
+        <button onclick="setRange(30,this)">30 يوم</button>
+      </div>
+    </div>
+    <div class="chart-legend">
+      <div class="leg-item"><div class="leg-line" style="background:var(--btc)"></div>Bitcoin DRI</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--eth);border-top:2px dashed var(--eth);height:0"></div>Ethereum DRI</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--high);opacity:.4;width:26px"></div>حد الخطر المرتفع</div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="dri-chart" role="img" aria-label="رسم بياني لمؤشر DRI لـ Bitcoin وEthereum"></canvas>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  بناءً على بحث جامعة الإمام عبدالرحمن بن فيصل ·
+  <span>Dynamic Model for Estimating Investment Risk in Cryptocurrencies</span>
+  · د. عزدالدين رابح · البيانات: CoinGecko API
+</footer>
+
+<script>
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let btcPrices = [], ethPrices = [];
+let dChart = null;
+let currentRange = 7;
+
+// ══════════════════════════════════════════════
+//  DRI CALCULATION  (research formula)
+//  Best weight config from Table 1: volatility-dominant
+// ══════════════════════════════════════════════
+function calcDRI(prices) {
+  if (!prices || prices.length < 8) return 0.5;
+  const vals = prices.map(p => p[1]);
+  const rets = vals.slice(1).map((v,i) => (v - vals[i]) / vals[i]);
+  const mean = rets.reduce((a,b) => a+b, 0) / rets.length;
+
+  const vol   = Math.sqrt(rets.reduce((a,r) => a + (r-mean)**2, 0) / rets.length);
+  const lastR = Math.abs(rets[rets.length - 1]);
+  const trend = Math.abs((vals[vals.length-1] - vals[0]) / vals[0]);
+
+  const gains = rets.filter(r => r > 0);
+  const losses = rets.filter(r => r < 0).map(Math.abs);
+  const avgG = gains.length  ? gains.reduce((a,b)=>a+b,0)/gains.length   : 0.001;
+  const avgL = losses.length ? losses.reduce((a,b)=>a+b,0)/losses.length : 0.001;
+  const rsiN = (100 - 100/(1 + avgG/avgL)) / 100;
+
+  const volN  = Math.min(vol  * 30, 1);
+  const retN  = Math.min(lastR * 15, 1);
+  const trendN = Math.min(trend, 1);
+
+  return Math.min(Math.max(0.40*volN + 0.20*retN + 0.20*rsiN + 0.20*trendN, 0), 1);
+}
+
+function calcDRISeries(prices, range) {
+  const win = 8;
+  const slice = prices.slice(-(range + win));
+  const out = [];
+  for (let i = win; i <= slice.length; i++) {
+    out.push(calcDRI(slice.slice(i - win, i)));
+  }
+  return out.slice(-range);
+}
+
+function getRisk(dri) {
+  if (dri < 0.35) return { label:'خطر منخفض', cls:'low' };
+  if (dri < 0.65) return { label:'خطر متوسط', cls:'med' };
+  return { label:'خطر مرتفع', cls:'high' };
+}
+
+// ══════════════════════════════════════════════
+//  SIMPLE PREDICTION  (LSTM-style weighted avg)
+// ══════════════════════════════════════════════
+function predictNextDRI(prices) {
+  if (prices.length < 14) return calcDRI(prices.slice(-8));
+  const series = calcDRISeries(prices, 14);
+  // Exponential weighting (recent days matter more — like LSTM)
+  const weights = series.map((_, i) => Math.exp((i - series.length + 1) * 0.25));
+  const wSum = weights.reduce((a,b) => a+b, 0);
+  const pred = series.reduce((acc, v, i) => acc + v * weights[i], 0) / wSum;
+  // Add small momentum adjustment
+  const momentum = series[series.length-1] - series[series.length-2];
+  return Math.min(Math.max(pred + momentum * 0.3, 0), 1);
+}
+
+// ══════════════════════════════════════════════
+//  UPDATE COIN CARDS
+// ══════════════════════════════════════════════
+function updateCards(simple) {
+  const btcDri = calcDRI(btcPrices.slice(-14));
+  const ethDri = calcDRI(ethPrices.slice(-14));
+
+  // DRI numbers
+  document.getElementById('btc-dri').textContent = btcDri.toFixed(3);
+  document.getElementById('eth-dri').textContent = ethDri.toFixed(3);
+
+  // Bars
+  const barColor = (d) => d < 0.35 ? '#22c55e' : d < 0.65 ? '#f59e0b' : '#ef4444';
+  const btcBar = document.getElementById('btc-bar');
+  const ethBar = document.getElementById('eth-bar');
+  btcBar.style.width = (btcDri * 100).toFixed(1) + '%';
+  btcBar.style.background = barColor(btcDri);
+  ethBar.style.width = (ethDri * 100).toFixed(1) + '%';
+  ethBar.style.background = barColor(ethDri);
+
+  // Risk pills
+  ['btc','eth'].forEach(c => {
+    const dri = c === 'btc' ? btcDri : ethDri;
+    const r = getRisk(dri);
+    const el = document.getElementById(c + '-risk');
+    el.textContent = r.label;
+    el.className = 'risk-pill ' + r.cls;
+  });
+
+  // Prices
+  if (simple) {
+    const bp = simple.bitcoin, ep = simple.ethereum;
+    document.getElementById('btc-price').textContent = '$' + bp.usd.toLocaleString('en-US',{maximumFractionDigits:0});
+    document.getElementById('eth-price').textContent = '$' + ep.usd.toLocaleString('en-US',{maximumFractionDigits:0});
+
+    const setChg = (id, v) => {
+      const el = document.getElementById(id);
+      el.textContent = (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+      el.style.color = v > 0 ? 'var(--low)' : 'var(--high)';
+    };
+    setChg('btc-chg', bp.usd_24h_change);
+    setChg('eth-chg', ep.usd_24h_change);
+  }
+}
+
+// ══════════════════════════════════════════════
+//  PREDICTION RESULT
+// ══════════════════════════════════════════════
+function runPrediction() {
+  if (!btcPrices.length) return;
+  const btn = document.getElementById('pred-btn');
+  btn.classList.add('loading');
+  btn.querySelector('.btn-icon').textContent = '⏳';
+
+  setTimeout(() => {
+    const btcNow  = calcDRI(btcPrices.slice(-14));
+    const ethNow  = calcDRI(ethPrices.slice(-14));
+    const btcNext = predictNextDRI(btcPrices);
+    const ethNext = predictNextDRI(ethPrices);
+
+    fillPredCoin('btc', btcNow, btcNext);
+    fillPredCoin('eth', ethNow, ethNext);
+
+    // Overall badge
+    const maxNext = Math.max(btcNext, ethNext);
+    const badge = document.getElementById('pred-overall-badge');
+    if (maxNext < 0.35)      { badge.textContent = '✓ السوق مستقر غداً';  badge.className = 'pred-badge keep';  }
+    else if (maxNext < 0.65) { badge.textContent = '⚠ تابع عن كثب';       badge.className = 'pred-badge watch'; }
+    else                     { badge.textContent = '✕ خطر مرتفع متوقع';   badge.className = 'pred-badge avoid'; }
+
+    document.getElementById('pred-result').classList.add('show');
+    btn.classList.remove('loading');
+    btn.querySelector('.btn-icon').textContent = '🔮';
+  }, 900);
+}
+
+function fillPredCoin(coin, now, next) {
+  const diff = next - now;
+  const arrow = diff > 0.01 ? '↑' : diff < -0.01 ? '↓' : '→';
+  const arrowColor = diff > 0.01 ? 'var(--high)' : diff < -0.01 ? 'var(--low)' : 'var(--muted2)';
+
+  document.getElementById('pred-' + coin + '-val').textContent = next.toFixed(3);
+  const arrowEl = document.getElementById('pred-' + coin + '-arrow');
+  arrowEl.textContent = arrow + ' ' + (diff >= 0 ? '+' : '') + (diff * 100).toFixed(1) + '%';
+  arrowEl.style.color = arrowColor;
+  arrowEl.style.fontSize = '13px';
+  arrowEl.style.fontFamily = 'var(--mono)';
+
+  // Explanation — plain Arabic, no jargon
+  const explains = {
+    low: `المؤشر منخفض (${next.toFixed(3)}) — التذبذب في السوق هادئ نسبياً. مناسب للمستثمر الحذر.`,
+    med: `المؤشر متوسط (${next.toFixed(3)}) — السوق يتحرك بشكل ملحوظ. تابع الوضع قبل أي قرار.`,
+    high:`المؤشر مرتفع (${next.toFixed(3)}) — تذبذب قوي متوقع. الأسعار قد تتحرك بسرعة في أي اتجاه.`
+  };
+  const rec = {
+    low:  { cls:'keep',  text:'✅ احتفظ — مستوى الخطر مقبول. يمكن الاستمرار في خطتك الاستثمارية.' },
+    med:  { cls:'watch', text:'👁 تحذير — راقب السوق. لا تدخل بمبالغ كبيرة حتى يتضح الاتجاه.' },
+    high: { cls:'avoid', text:'🚫 تجنّب — خطر مرتفع. إذا لم تكن مستعداً للخسارة، أخّر قرار الاستثمار.' }
+  };
+
+  const riskKey = next < 0.35 ? 'low' : next < 0.65 ? 'med' : 'high';
+  document.getElementById('pred-' + coin + '-explain').textContent = explains[riskKey];
+  const recData = rec[riskKey];
+  const recEl = document.getElementById('pred-' + coin + '-rec');
+  recEl.textContent = recData.text;
+  recEl.className = 'pred-recommend ' + recData.cls;
+}
+
+// ══════════════════════════════════════════════
+//  CHART
+// ══════════════════════════════════════════════
+function setRange(n, btn) {
+  currentRange = n;
+  document.querySelectorAll('.range-btns button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (btcPrices.length) renderChart();
+}
+
+function renderChart() {
+  const btcS = calcDRISeries(btcPrices, currentRange);
+  const ethS = calcDRISeries(ethPrices, currentRange);
+  const labels = Array.from({ length: btcS.length }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (btcS.length - 1 - i));
+    return d.toLocaleDateString('ar-SA', { month:'short', day:'numeric' });
+  });
+
+  if (dChart) dChart.destroy();
+  const ctx = document.getElementById('dri-chart').getContext('2d');
+  dChart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {
+          label:'Bitcoin DRI',
+          data: btcS.map(v => +v.toFixed(4)),
+          borderColor:'#f7931a', borderWidth:2.5,
+          pointRadius:3, pointBackgroundColor:'#f7931a',
+          tension:.35, fill:false
+        },
+        {
+          label:'Ethereum DRI',
+          data: ethS.map(v => +v.toFixed(4)),
+          borderColor:'#627eea', borderWidth:2,
+          borderDash:[5,3],
+          pointRadius:3, pointBackgroundColor:'#627eea',
+          tension:.35, fill:false
+        }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#131920',
+          borderColor:'rgba(255,255,255,0.1)', borderWidth:1,
+          titleColor:'#dde3ee', bodyColor:'#7f8fa8',
+          callbacks:{ label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(3)}` }
+        }
+      },
+      scales:{
+        y:{
+          min:0, max:1,
+          grid:{color:'rgba(255,255,255,0.04)'},
+          ticks:{color:'#5a6478', font:{size:10}, callback:v=>v.toFixed(1)}
+        },
+        x:{
+          grid:{display:false},
+          ticks:{color:'#5a6478', font:{size:10}, maxTicksLimit:8, maxRotation:30, autoSkip:true}
+        }
+      }
+    }
+  });
+
+  // Draw danger threshold line after render
+  Chart.register({
+    id:'threshLine',
+    afterDraw(chart) {
+      const {ctx, chartArea, scales} = chart;
+      if (!chartArea) return;
+      const y = scales.y.getPixelForValue(0.65);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(239,68,68,0.35)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5,5]);
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, y);
+      ctx.lineTo(chartArea.right, y);
+      ctx.stroke();
+      ctx.restore();
+    }
+  });
+}
+
+// ══════════════════════════════════════════════
+//  DATA FETCHING  (CoinGecko — free, no key)
+//  Same daily OHLCV data as CoinMarketCap
+// ══════════════════════════════════════════════
+async function loadData() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  document.getElementById('status-msg').textContent = '🔄 جاري جلب البيانات...';
+
+  try {
+    const [btcR, ethR, simR] = await Promise.all([
+      fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=30&interval=daily'),
+      fetch('https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=30&interval=daily'),
+      fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true')
+    ]);
+    const btcJson = await btcR.json();
+    const ethJson = await ethR.json();
+    const simple  = await simR.json();
+
+    btcPrices = btcJson.prices;
+    ethPrices = ethJson.prices;
+
+    updateCards(simple);
+    renderChart();
+
+    const t = new Date().toLocaleTimeString('ar-SA');
+    document.getElementById('status-msg').textContent = `✅ آخر تحديث: ${t}`;
+    document.getElementById('nav-time').textContent = t;
+
+  } catch(e) {
+    document.getElementById('status-msg').textContent = '⚠️ تعذّر الاتصال — تعرض بيانات تجريبية';
+    useDemoData();
+  }
+
+  btn.classList.remove('spinning');
+}
+
+function useDemoData() {
+  const now = Date.now(), d = 86400000;
+  const gen = (base, n) =>
+    Array.from({length:35},(_,i)=>[now-(34-i)*d, base+(Math.random()-.47)*n*(1+i*.03)]);
+  btcPrices = gen(95000, 7000);
+  ethPrices = gen(3200, 380);
+  const simple = {
+    bitcoin:  {usd:95000, usd_24h_change:(Math.random()-.45)*5},
+    ethereum: {usd:3200,  usd_24h_change:(Math.random()-.45)*6}
+  };
+  updateCards(simple);
+  renderChart();
+  document.getElementById('nav-time').textContent = 'بيانات تجريبية';
+}
+
+// ── INIT ──
+loadData();
+</script>
+</body>
+</html>
